@@ -22,14 +22,14 @@ public class UserManagementController {
     private UserService userService;
     
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_SUPER_ADMIN')")
     public ResponseEntity<List<User>> getAllUsers() {
         // Note: You'll need to add findAll() method to UserService
         return ResponseEntity.ok().build();
     }
     
     @PutMapping("/{userId}/role")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
     public ResponseEntity<?> updateUserRole(@PathVariable Long userId, @RequestBody Map<String, String> request) {
         try {
             String roleString = request.get("role");
@@ -64,7 +64,7 @@ public class UserManagementController {
     }
     
     @PostMapping("/promote-to-admin")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
     public ResponseEntity<?> promoteToAdmin(@RequestBody Map<String, String> request) {
         try {
             String email = request.get("email");

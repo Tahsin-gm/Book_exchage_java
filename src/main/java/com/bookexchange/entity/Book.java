@@ -29,11 +29,11 @@ public class Book {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "condition_type", nullable = false)
-    private BookCondition conditionType;
+    private BookCondition condition;
     
     @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     private String image;
     
     private String isbn;
@@ -48,22 +48,16 @@ public class Book {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "listing_type")
-    private ListingType listingType = ListingType.SALE;
+    private ListingType listingType ;
     
     @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = LocalDateTime.now() ;
+
     
-    public enum BookCondition {
-        NEW, LIKE_NEW, GOOD, FAIR, POOR
-    }
+
     
-    public enum BookStatus {
-        AVAILABLE, SOLD
-    }
-    
-    public enum ListingType {
-        SALE, EXCHANGE, AUCTION
-    }
+
+
     
 
 }

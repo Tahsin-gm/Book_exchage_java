@@ -1,12 +1,15 @@
 package com.bookexchange.service;
 
 import com.bookexchange.entity.Book;
+import com.bookexchange.entity.BookStatus;
 import com.bookexchange.entity.Transaction;
 import com.bookexchange.entity.User;
+import com.bookexchange.exception.BookNotFoundException;
 import com.bookexchange.repository.BookRepository;
 import com.bookexchange.repository.TransactionRepository;
 import com.bookexchange.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,19 +28,11 @@ public class TransactionService {
     private BookRepository bookRepository;
     
     public Transaction createTransaction(String buyerEmail, Long bookId) {
-        Optional<User> buyerOpt = userRepository.findByEmail(buyerEmail);
-        Optional<Book> bookOpt = bookRepository.findById(bookId);
-        
-        if (buyerOpt.isEmpty()) {
-            throw new RuntimeException("Buyer not found");
-        }
-        
-        if (bookOpt.isEmpty()) {
-            throw new RuntimeException("Book not found");
-        }
-        
-        User buyer = buyerOpt.get();
-        Book book = bookOpt.get();
+        User buyer = userRepository.findByEmail(buyerEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Buyer not found with email: " + buyerEmail));
+
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new BookNotFoundException("Book not found with id: " + bookId));
         
         if (book.getSeller().getId().equals(buyer.getId())) {
             throw new RuntimeException("Cannot buy your own book");
@@ -51,27 +46,23 @@ public class TransactionService {
         transaction.setStatus(Transaction.TransactionStatus.COMPLETED);
         
         // Mark book as sold
-        book.setStatus(Book.BookStatus.SOLD);
+        book.setStatus(BookStatus.SOLD);
         bookRepository.save(book);
         
         return transactionRepository.save(transaction);
     }
     
-    public List<Transaction> getUserPurchases(String email) {
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isEmpty()) {
-            throw new RuntimeException("User not found");
-        }
-        
-        return transactionRepository.findByBuyerOrderByCreatedAtDesc(userOpt.get());
+    public List<Transaction> getUserPurchases(String buyerEmail) {
+        User buyer = userRepository.findByEmail(buyerEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with buyerEmail: " + buyerEmail));
+
+        return transactionRepository.findByBuyerOrderByCreatedAtDesc(buyer);
     }
     
-    public List<Transaction> getUserSales(String email) {
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isEmpty()) {
-            throw new RuntimeException("User not found");
-        }
-        
-        return transactionRepository.findBySellerOrderByCreatedAtDesc(userOpt.get());
+    public List<Transaction> getUserSales(String sellerEmail) {
+        User seller = userRepository.findByEmail(sellerEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with sellerEmail: " + sellerEmail));
+
+        return transactionRepository.findBySellerOrderByCreatedAtDesc(seller);
     }
 }

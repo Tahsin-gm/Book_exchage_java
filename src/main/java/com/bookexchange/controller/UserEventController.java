@@ -1,57 +1,51 @@
 package com.bookexchange.controller;
 
+import com.bookexchange.dto.EventSubmitRequestDto;
 import com.bookexchange.entity.Event;
 import com.bookexchange.entity.User;
-import com.bookexchange.repository.EventRepository;
-import com.bookexchange.repository.UserRepository;
-import com.bookexchange.service.JwtService;
+import com.bookexchange.security.CustomUserDetails;
+import com.bookexchange.service.UserEventService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/events")
 @CrossOrigin(origins = "*")
 public class UserEventController {
-    
+
     @Autowired
-    private EventRepository eventRepository;
-    
-    @Autowired
-    private UserRepository userRepository;
-    
-    @Autowired
-    private JwtService jwtService;
-    
+    private UserEventService userEventService;
+
+    /**
+     * Submit an event (ROLE_USER required)
+     */
     @PostMapping("/submit")
-    public ResponseEntity<?> submitEvent(@RequestBody Map<String, Object> request, @RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> userOpt = userRepository.findByEmail(email);
-            if (userOpt.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
-            }
-            
-            Event event = new Event();
-            event.setTitle(request.get("title").toString());
-            event.setDescription(request.get("description").toString());
-            event.setLocation(request.get("location").toString());
-            event.setStartDate(LocalDateTime.parse(request.get("startDate").toString()));
-            event.setEndDate(LocalDateTime.parse(request.get("endDate").toString()));
-            event.setType(Event.EventType.valueOf(request.get("type").toString()));
-            // event.setStatus(Event.EventStatus.PENDING); // Requires approval
-            // event.setSubmittedBy(userOpt.get());
-            
-            Event savedEvent = eventRepository.save(event);
-            return ResponseEntity.ok(Map.of("message", "Event submitted for approval", "event", savedEvent));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    public ResponseEntity<?> submitEvent( @RequestBody EventSubmitRequestDto request,
+                                         Authentication authentication) {
+        User user = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+        Event savedEvent = userEventService.submitEvent(user, request);
+        return ResponseEntity.ok(Map.of("message", "Event submitted for approval", "event", savedEvent));
+    }
+
+    /**
+     * List upcoming events (public)
+     */
+    @GetMapping("/upcoming")
+    public ResponseEntity<?> getUpcomingEvents() {
+        return ResponseEntity.ok(userEventService.getUpcomingEvents());
+    }
+
+    /**
+     * List events by type (public)
+     */
+    @GetMapping("/type/{type}")
+    public ResponseEntity<?> getEventsByType(@PathVariable Event.EventType type) {
+        return ResponseEntity.ok(userEventService.getEventsByType(type));
     }
 }

@@ -1,233 +1,70 @@
 package com.bookexchange.controller;
 
-import com.bookexchange.entity.Book;
 import com.bookexchange.entity.ExchangeRequest;
-import com.bookexchange.entity.User;
-import com.bookexchange.repository.BookRepository;
-import com.bookexchange.repository.ExchangeRequestRepository;
-import com.bookexchange.service.JwtService;
-import com.bookexchange.service.UserService;
+import com.bookexchange.security.CustomUserDetails;
+import com.bookexchange.service.ExchangeRequestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/exchange-requests")
 @CrossOrigin(origins = "*")
 public class ExchangeRequestController {
-    
+
     @Autowired
-    private ExchangeRequestRepository exchangeRequestRepository;
-    
-    @Autowired
-    private BookRepository bookRepository;
-    
-    @Autowired
-    private UserService userService;
-    
-    @Autowired
-    private JwtService jwtService;
-    
-    @GetMapping("/exchange-requests/received")
-    public ResponseEntity<?> getReceivedRequests(@RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> userOpt = userService.findByEmail(email);
-            if (userOpt.isEmpty()) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "User not found");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            List<ExchangeRequest> requests = exchangeRequestRepository.findByOwnerOrderByCreatedAtDesc(userOpt.get());
-            return ResponseEntity.ok(requests);
-            
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
+    private ExchangeRequestService exchangeRequestService;
+
+    @GetMapping("/received")
+    public ResponseEntity<List<ExchangeRequest>> getReceivedRequests(Authentication authentication) {
+        String email = ((CustomUserDetails) authentication.getPrincipal()).getEmail();
+        return ResponseEntity.ok(exchangeRequestService.getReceivedRequests(email));
     }
-    
-    @GetMapping("/exchange-requests/sent")
-    public ResponseEntity<?> getSentRequests(@RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> userOpt = userService.findByEmail(email);
-            if (userOpt.isEmpty()) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "User not found");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            List<ExchangeRequest> requests = exchangeRequestRepository.findByRequesterOrderByCreatedAtDesc(userOpt.get());
-            return ResponseEntity.ok(requests);
-            
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
+
+    @GetMapping("/sent")
+    public ResponseEntity<List<ExchangeRequest>> getSentRequests(Authentication authentication) {
+        String email = ((CustomUserDetails) authentication.getPrincipal()).getEmail();
+        return ResponseEntity.ok(exchangeRequestService.getSentRequests(email));
     }
-    
-    @PostMapping("/exchange-requests")
-    public ResponseEntity<?> createExchangeRequest(
+
+    @PostMapping
+    public ResponseEntity<Map<String, Object>> createExchangeRequest(
             @RequestParam Long requestedBookId,
             @RequestParam Long offeredBookId,
             @RequestParam(required = false) String message,
-            @RequestHeader("Authorization") String authHeader) {
-        
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> requesterOpt = userService.findByEmail(email);
-            Optional<Book> requestedBookOpt = bookRepository.findById(requestedBookId);
-            Optional<Book> offeredBookOpt = bookRepository.findById(offeredBookId);
-            
-            if (requesterOpt.isEmpty() || requestedBookOpt.isEmpty() || offeredBookOpt.isEmpty()) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "User or books not found");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            Book requestedBook = requestedBookOpt.get();
-            User owner = requestedBook.getSeller();
-            
-            ExchangeRequest exchangeRequest = new ExchangeRequest();
-            exchangeRequest.setRequester(requesterOpt.get());
-            exchangeRequest.setOwner(owner);
-            exchangeRequest.setRequestedBook(requestedBook);
-            exchangeRequest.setOfferedBook(offeredBookOpt.get());
-            exchangeRequest.setMessage(message);
-            
-            ExchangeRequest savedRequest = exchangeRequestRepository.save(exchangeRequest);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Exchange request sent successfully");
-            response.put("requestId", savedRequest.getId());
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
+            Authentication authentication) {
+
+        String email = ((CustomUserDetails) authentication.getPrincipal()).getEmail();
+        ExchangeRequest savedRequest = exchangeRequestService.createExchangeRequest(email, requestedBookId, offeredBookId, message);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Exchange request sent successfully",
+                "requestId", savedRequest.getId()
+        ));
     }
-    
-    @PutMapping("/exchange-requests/{id}/accept")
-    public ResponseEntity<?> acceptRequest(@PathVariable Long id, @RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> userOpt = userService.findByEmail(email);
-            Optional<ExchangeRequest> requestOpt = exchangeRequestRepository.findById(id);
-            
-            if (userOpt.isEmpty() || requestOpt.isEmpty()) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "User or request not found");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            ExchangeRequest request = requestOpt.get();
-            if (!request.getOwner().getId().equals(userOpt.get().getId())) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "Unauthorized");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            request.setStatus(ExchangeRequest.ExchangeStatus.ACCEPTED);
-            exchangeRequestRepository.save(request);
-            
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Exchange request accepted");
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
+
+    @PutMapping("/{id}/accept")
+    public ResponseEntity<Map<String, String>> acceptRequest(@PathVariable Long id, Authentication authentication) {
+        String email = ((CustomUserDetails) authentication.getPrincipal()).getEmail();
+        exchangeRequestService.acceptExchangeRequest(email, id);
+        return ResponseEntity.ok(Map.of("message", "Exchange request accepted"));
     }
-    
-    @PutMapping("/exchange-requests/{id}/decline")
-    public ResponseEntity<?> declineRequest(@PathVariable Long id, @RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> userOpt = userService.findByEmail(email);
-            Optional<ExchangeRequest> requestOpt = exchangeRequestRepository.findById(id);
-            
-            if (userOpt.isEmpty() || requestOpt.isEmpty()) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "User or request not found");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            ExchangeRequest request = requestOpt.get();
-            if (!request.getOwner().getId().equals(userOpt.get().getId())) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "Unauthorized");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            request.setStatus(ExchangeRequest.ExchangeStatus.DECLINED);
-            exchangeRequestRepository.save(request);
-            
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Exchange request declined");
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
+
+    @PutMapping("/{id}/decline")
+    public ResponseEntity<Map<String, String>> declineRequest(@PathVariable Long id, Authentication authentication) {
+        String email = ((CustomUserDetails) authentication.getPrincipal()).getEmail();
+        exchangeRequestService.declineExchangeRequest(email, id);
+        return ResponseEntity.ok(Map.of("message", "Exchange request declined"));
     }
-    
-    @DeleteMapping("/exchange-requests/{id}")
-    public ResponseEntity<?> cancelRequest(@PathVariable Long id, @RequestHeader("Authorization") String authHeader) {
-        try {
-            String token = authHeader.replace("Bearer ", "");
-            String email = jwtService.extractEmail(token);
-            
-            Optional<User> userOpt = userService.findByEmail(email);
-            Optional<ExchangeRequest> requestOpt = exchangeRequestRepository.findById(id);
-            
-            if (userOpt.isEmpty() || requestOpt.isEmpty()) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "User or request not found");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            ExchangeRequest request = requestOpt.get();
-            if (!request.getRequester().getId().equals(userOpt.get().getId())) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "Unauthorized");
-                return ResponseEntity.badRequest().body(error);
-            }
-            
-            exchangeRequestRepository.delete(request);
-            
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Exchange request cancelled");
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> cancelRequest(@PathVariable Long id, Authentication authentication) {
+        String email = ((CustomUserDetails) authentication.getPrincipal()).getEmail();
+        exchangeRequestService.cancelExchangeRequest(email, id);
+        return ResponseEntity.ok(Map.of("message", "Exchange request cancelled"));
     }
 }
