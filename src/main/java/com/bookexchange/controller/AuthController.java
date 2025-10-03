@@ -1,10 +1,8 @@
 package com.bookexchange.controller;
 
 import com.bookexchange.dto.LoginRequest;
-import com.bookexchange.dto.RegisterRequest;
-import com.bookexchange.entity.User;
 import com.bookexchange.security.CustomUserDetails;
-import com.bookexchange.service.JwtService;
+import com.bookexchange.security.JwtService;
 import com.bookexchange.service.UserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,7 +15,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
@@ -26,6 +23,10 @@ import java.util.Optional;
 public class AuthController {
     @Autowired
     private  UserService userService;
+    @Autowired
+    private AuthenticationManager authenticationManager;
+    @Autowired
+    private JwtService jwtService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(
@@ -39,8 +40,28 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        return ResponseEntity.ok(userService.authenticateUser(request.getEmail(), request.getPassword()));
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+        String token = jwtService.generateToken(userDetails);
+
+        Map<String, Object> userMap = new HashMap<>();
+        var user = userDetails.getUser();
+        userMap.put("id", user.getId());
+        userMap.put("username", user.getUsername());
+        userMap.put("email", user.getEmail());
+        userMap.put("profilePicture", user.getProfilePicture());
+        userMap.put("role", user.getRole());
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("token", token);
+        resp.put("user", userMap);
+        return ResponseEntity.ok(resp);
     }
+
 
     @PutMapping("/profile")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN') or hasRole('SUPER_ADMIN')")

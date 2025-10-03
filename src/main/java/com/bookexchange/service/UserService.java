@@ -2,12 +2,8 @@ package com.bookexchange.service;
 
 import com.bookexchange.entity.User;
 import com.bookexchange.repository.UserRepository;
-import com.bookexchange.security.CustomUserDetails;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import com.bookexchange.security.JwtService;
+import org.springframework.context.ApplicationContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,22 +12,24 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 
-public class UserService {
-    @Autowired
-    private  UserRepository userRepository;
-    @Autowired
-    private  PasswordEncoder passwordEncoder;
-    @Autowired
-    private  AuthenticationManager authenticationManager;
-    @Autowired
-    private  JwtService jwtService;
+public class    UserService {
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+;
+
+    public UserService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       ApplicationContext applicationContext,
+                       JwtService jwtService) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     // ----------------- Registration -----------------
     public Map<String, Object> registerUserWithProfile(String username, String email, String password, MultipartFile profilePicture) {
@@ -62,33 +60,8 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    // ----------------- Authentication/Login -----------------
-    public Map<String, Object> authenticateUser(String email, String password) {
-        System.out.println("🧠 Authenticating user: " + email + " / " + password);
-        Authentication authentication;
 
-            authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(email, password)
-            );
 
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        User user = userDetails.getUser();
-
-        String token = jwtService.generateToken(userDetails);
-
-        Map<String, Object> userMap = new HashMap<>();
-        userMap.put("id", user.getId());
-        userMap.put("username", user.getUsername());
-        userMap.put("email", user.getEmail());
-        userMap.put("profilePicture", user.getProfilePicture());
-        userMap.put("role", user.getRole());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", token);
-        response.put("user", userMap);
-        return response;
-
-    }
 
     // ----------------- Profile Update -----------------
     public Map<String, Object> updateUserProfile(User user, String username, String email, String password, MultipartFile profilePicture) {

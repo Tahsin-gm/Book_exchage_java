@@ -1,6 +1,7 @@
 package com.bookexchange.security;
 
 import com.bookexchange.entity.User;
+import com.bookexchange.repository.UserRepository;
 import com.bookexchange.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,13 +13,18 @@ import java.util.Optional;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
-    
-    @Autowired
-    private UserService userService;
-    
+
+
+    private final UserRepository  userRepository;
+
+    public CustomUserDetailsService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        Optional<User> userOptional = userService.findByEmail(email);
+        Optional<User> userOptional = userRepository.findByEmail(email);
         
         if (userOptional.isEmpty()) {
             throw new UsernameNotFoundException("User not found with email: " + email);

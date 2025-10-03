@@ -29,7 +29,7 @@ public class Book {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "condition_type", nullable = false)
-    private BookCondition condition;
+    private BookCondition conditionType;
     
     @Column(columnDefinition = "TEXT")
     private String description;

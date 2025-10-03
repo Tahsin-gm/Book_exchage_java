@@ -1,4 +1,4 @@
-package com.bookexchange.service;
+package com.bookexchange.security;
 
 import com.bookexchange.entity.Role;
 import io.jsonwebtoken.Claims;

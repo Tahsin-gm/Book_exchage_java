@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,12 +54,15 @@ public class BookService {
     }
     public Book getBookByTitle(String title) {
         return bookRepository.findByTitleIgnoreCase(title)
-                .orElseThrow(() -> new BookNotFoundException("Book not found with title: " + title));
+                .orElseThrow(() ->
+                        new BookNotFoundException("Book not found with title: " + title));
     }
 
     // Optional: search by partial title
     public List<Book> searchBooksByTitle(String keyword) {
+
         return bookRepository.findByTitleContainingIgnoreCase(keyword);
+
     }
 
 
@@ -67,18 +71,17 @@ public class BookService {
         return bookRepository.
                 findBySellerOrderByCreatedAtDesc(seller);
     }
-    
-    public Book saveBook(Book book, MultipartFile imageFile,User user)  {
 
+    public Book saveBook(Book book, MultipartFile imageFile) throws IOException {
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
                 String fileName = UUID.randomUUID().toString() + "_" + imageFile.getOriginalFilename();
                 Path uploadPath = Paths.get(uploadDir);
-                
+
                 if (!Files.exists(uploadPath)) {
                     Files.createDirectories(uploadPath);
                 }
-                
+
                 Path filePath = uploadPath.resolve(fileName);
                 Files.copy(imageFile.getInputStream(), filePath);
                 book.setImage(fileName);
@@ -88,8 +91,7 @@ public class BookService {
                 e.printStackTrace();
             }
         }
-        book.setSeller(user);
-        
+
         return bookRepository.save(book);
     }
     

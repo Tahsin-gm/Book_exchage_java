@@ -10,6 +10,7 @@ import com.bookexchange.exception.UnauthorizedActionException;
 import com.bookexchange.repository.BookRepository;
 import com.bookexchange.repository.EventRepository;
 import com.bookexchange.security.CustomUserDetails;
+import com.bookexchange.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
